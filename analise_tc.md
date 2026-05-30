@@ -13,6 +13,24 @@ Resultados numéricos obtidos com o estimador refinado (Savitzky–Golay + corte
 | $C=3$ | $\theta \approx 1.18$ | 0.994 | $\alpha \approx 2.17$ | $\beta \approx -0.98$ | **Consistente** — janela crítica estreita |
 | $C=N$ | $\theta \approx -2.01$ | 0.604 | $\alpha \approx 2.16$ | $\beta \approx -4.16$ (R²=0.87) | **Artefato** — estimador falha para $N \ge 2000$ |
 
+### O que significa "o estimador falhar"
+
+O estimador de $t_c$ usado aqui é puramente geométrico:
+
+$$
+\hat{t}_c(N) \;=\; \arg\max_{t}\; \frac{dp(t,N)}{d\ln t},
+$$
+
+ou seja, **localizamos o ponto de inclinação máxima da curva $p(t,N)$ em escala log de tempo**. Esse procedimento só recupera o tempo crítico físico se a curva tiver **um único cotovelo dominante**, correspondente à transição de percolação. "O estimador falha" significa, concretamente, que essa hipótese é violada e o `argmax` passa a apontar para algo que **não é** a transição de interesse. Três modos de falha típicos:
+
+1. **Pico espúrio nas bordas.** Quando $p(t)$ está saturando perto de $0$ ou $1$, ruído numérico ou um transitório inicial podem gerar uma derivada localmente maior que a do verdadeiro cotovelo crítico. O `argmax` escolhe esse pico falso, e $\hat{t}_c$ é "atraído" para a borda da curva. É exatamente o que parece ocorrer em $C=N$ a partir de $N \ge 2000$: $\hat{t}_c$ desaba três ordens de grandeza porque o `argmax` migra do cotovelo de percolação para um pico inicial de saturação local (ver §5).
+
+2. **Curva com dois cotovelos (cross-over).** Se houver duas escalas de tempo competindo — por exemplo, um transitório rápido seguido da percolação propriamente dita — cada uma gera um máximo local em $dp/d\ln t$. Para $N$ pequeno um deles é maior, para $N$ grande o outro, e $\hat{t}_c(N)$ "salta" descontinuamente entre regimes. Esse salto aparece na tabela como $\theta$ negativo e R² baixo, sintomas inequívocos de que o estimador não está medindo uma única escala física.
+
+3. **Janela de suavização inadequada.** Uma janela Savitzky–Golay larga demais alarga e desloca o pico; estreita demais deixa ruído passar e cria máximos espúrios. O código usa janela adaptativa $w = \mathrm{odd}(\mathrm{clip}(0.05\,n,\,7,\,51))$ justamente para minimizar isso, mas em curvas patológicas (como $C=N$ com poucos pontos no platô central) nenhuma escolha de janela resolve sozinha.
+
+Em todos os três casos o sintoma observável é o mesmo: $\hat{t}_c(N)$ deixa de ser uma função monótona e suave de $N$, o R² do ajuste $\ln \hat{t}_c$ vs $\ln N$ cai abruptamente, e o sinal do expoente pode até inverter. **Não é a física que mudou — é o estimador que parou de medir o que se propôs a medir.** O remédio é restringir o domínio do `argmax` à janela onde a transição física certamente vive (máscara $p \in [p_{\min}, p_{\max}]$, ver §5).
+
 ---
 
 ## 2. $t_{\max}(N)$ — escala universal $\sim N^{2.15\text{–}2.24}$

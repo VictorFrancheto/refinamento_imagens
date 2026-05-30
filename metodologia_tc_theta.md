@@ -108,35 +108,65 @@ o último tempo observado na simulação para tamanho $N$.
 
 ### 3.2 Lei de potência log-log
 
-Para $y\in\{t_c, t_{\max}, t_c/t_{\max}\}$, ajusta-se $y(N) = A\,N^{\alpha}$ por mínimos quadrados em escala log:
+Seja $\{(N_i, y_i)\}_{i=1}^{K}$ o conjunto de $K$ pares observados, onde:
+
+- $N_i$ é o $i$-ésimo tamanho de rede simulado (no nosso caso, $N_i\in\{300, 500, 600, 1000, 2000, 3000\}$, logo $K=6$);
+- $y_i$ é o valor da grandeza de interesse medida nessa rede de tamanho $N_i$. Dependendo do contexto, $y_i$ pode ser:
+  - $t_c(N_i)$ — tempo pseudo-crítico estimado pela inflexão de $p$ vs $\ln t$;
+  - $t_{\max}(N_i)$ — último tempo observado na simulação;
+  - $t_c(N_i)/t_{\max}(N_i)$ — razão entre os dois.
+
+Ajusta-se o modelo $y(N) = A\,N^{\alpha}$ por mínimos quadrados em escala log (i.e., regressão linear de $\ln y_i$ contra $\ln N_i$):
 
 $$
-\hat\alpha \;=\; \frac{\sum_i (\ln N_i - \overline{\ln N})(\ln y_i - \overline{\ln y})}{\sum_i (\ln N_i - \overline{\ln N})^2},
+\hat\alpha \;=\; \frac{\sum_{i=1}^{K} (\ln N_i - \overline{\ln N})(\ln y_i - \overline{\ln y})}{\sum_{i=1}^{K} (\ln N_i - \overline{\ln N})^2},
 \qquad
-\ln \hat A \;=\; \overline{\ln y} - \hat\alpha\,\overline{\ln N}.
+\ln \hat A \;=\; \overline{\ln y} - \hat\alpha\,\overline{\ln N},
 $$
+
+onde $\overline{\ln N} = \tfrac{1}{K}\sum_i \ln N_i$ e $\overline{\ln y} = \tfrac{1}{K}\sum_i \ln y_i$ são as médias amostrais.
 
 O coeficiente de determinação é
 
 $$
-R^2 \;=\; 1 \;-\; \frac{\sum_i (\ln y_i - \hat\alpha\ln N_i - \ln\hat A)^2}{\sum_i (\ln y_i - \overline{\ln y})^2}.
+R^2 \;=\; 1 \;-\; \frac{\sum_{i=1}^{K} (\ln y_i - \hat\alpha\ln N_i - \ln\hat A)^2}{\sum_{i=1}^{K} (\ln y_i - \overline{\ln y})^2}.
 $$
 
 ### 3.3 Ajuste com offset (sem assumir $t_c^\infty = 0$)
 
-Quando se quer **testar** se existe $t_c^\infty$ finito, ajusta-se o modelo de três parâmetros
+**O que é $t_c^\infty$?** É o valor-limite **teórico** do tempo pseudo-crítico no limite termodinâmico:
 
 $$
-t_c(N) \;=\; t_\infty \;+\; a\,N^{-\theta_{tc}},
+t_c^\infty \;\equiv\; \lim_{N\to\infty} t_c(N).
 $$
 
-por mínimos quadrados não-lineares (Levenberg–Marquardt via `scipy.optimize.curve_fit`). Os chutes iniciais vêm do ajuste log-log puro:
+Fisicamente, $t_c^\infty$ é o *único* tempo em que ocorre a transição de fase no sistema infinito. Há três cenários possíveis:
+
+| Cenário | Comportamento de $t_c(N)$ | Significado físico |
+|---|---|---|
+| $t_c^\infty$ **finito e $>0$** | $t_c(N) \to t_c^\infty$ com correção $aN^{-\theta_{tc}}$ | transição de fase termodinâmica clássica |
+| $t_c^\infty = 0$ | $t_c(N) \to 0$ como $aN^{-\theta_{tc}}$ com $\theta_{tc}>0$ | transição comprime-se para a origem |
+| $t_c^\infty = +\infty$ | $t_c(N)$ **diverge** polinomialmente | não há ponto crítico termodinâmico (caso típico de ataques que precisam de $\mathcal{O}(N^q)$ passos) |
+
+O ajuste log-log puro da seção 3.2 só é correto nos dois últimos cenários — implicitamente assume que $t_c^\infty = 0$ ou que $t_c$ diverge. Para **detectar** o primeiro cenário sem pressupô-lo, ajusta-se o modelo de três parâmetros
 
 $$
-\theta_0 = -\hat\alpha,\qquad a_0 = e^{\ln\hat A},\qquad t_{\infty,0} = \tfrac{1}{2}\min_i t_c(N_i).
+t_c(N) \;=\; t_c^\infty \;+\; a\,N^{-\theta_{tc}},
 $$
 
-**Diagnóstico.** Se $t_\infty$ retorna compatível com zero (dentro do erro), o sistema **não** tem ponto crítico termodinâmico — $t_c$ diverge como potência de $N$. Se $t_\infty > 0$ com $R^2$ alto, o ajuste log-log puro é enviesado e o expoente correto vem do ajuste não-linear.
+por mínimos quadrados não-lineares (Levenberg–Marquardt via `scipy.optimize.curve_fit`). Os três parâmetros livres são: o limite $t_c^\infty$ (no código chamado de `t_inf`), a amplitude $a$ da correção de tamanho finito, e o expoente $\theta_{tc}$ que governa a velocidade com que $t_c(N)$ se aproxima de $t_c^\infty$.
+
+Os chutes iniciais vêm do ajuste log-log puro:
+
+$$
+\theta_0 = -\hat\alpha,\qquad a_0 = e^{\ln\hat A},\qquad t_{c,0}^\infty = \tfrac{1}{2}\min_i t_c(N_i).
+$$
+
+**Diagnóstico.**
+
+- Se $t_c^\infty$ retorna compatível com zero (dentro do erro), o sistema **não** tem ponto crítico termodinâmico — $t_c$ diverge como potência de $N$ (terceiro cenário).
+- Se $t_c^\infty > 0$ com $R^2$ alto, há **ponto crítico finito** e o ajuste log-log puro era enviesado: o expoente real $\theta_{tc}$ vem do ajuste não-linear.
+- Se a otimização não converge (ou devolve $R^2$ baixo), o ansatz puro $t_c \sim t_c^\infty + aN^{-\theta}$ é insuficiente — há correções de scaling adicionais.
 
 ---
 
