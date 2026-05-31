@@ -226,3 +226,12 @@ Em SPP sobre Waxman com o estimador deste trabalho:
 - O regime de capacidade muito alta ($C=N$) sugere duas escalas de tempo distintas, mas isso precisa ser confirmado com o estimador corrigido antes de qualquer afirmação física.
 
 Para o desenho de uma internet quântica real, a leitura é direta: $C$ é o botão que troca **horizonte operacional** por **agudeza da falha**. Os dados aqui não dizem qual é o $C$ ótimo — dizem que essa pergunta tem que ser feita em termos de $\theta_C$, não de $t_c$ isolado, porque é $\theta_C$ que governa como a escolha vai escalar conforme a rede cresce.
+
+
+---
+---
+Do ponto de vista de uma rede quântica, a conectividade da topologia física é o que permite estabelecer cadeias de comunicação entre nós distantes, por meio de conexões intermediárias e operações de troca de emaranhamento. Nesse contexto, a dinâmica de remoção do SPP representa a perda progressiva desses caminhos disponíveis na rede. Cada caminho removido reduz o conjunto de possibilidades pelas quais dois nós podem permanecer conectados dentro da estrutura global.
+
+O parâmetro (C) entra como uma restrição da dinâmica de remoção, e não como uma propriedade intrínseca da rede quântica. Para (C=1,2,3), apenas caminhos curtos participam do processo de remoção. Assim, a degradação fica mais localizada e a perda de conectividade global ocorre de forma mais gradual, o que é consistente com o colapso de curvas observado para capacidades finitas. Já no caso (C=N), qualquer caminho mínimo disponível pode participar da remoção, incluindo caminhos que conectam regiões distantes da rede. Por isso, a dinâmica passa a afetar diretamente a conectividade em escala global, levando a uma fragmentação mais rápida e a um comportamento distinto daquele observado para (C) finito.
+
+Fisicamente, isso significa que a possibilidade de utilizar caminhos longos em uma rede quântica não implica necessariamente maior robustez. Embora caminhos longos permitam conectar nós distantes e, portanto, sustentar comunicação quântica em maior escala, sua remoção também compromete diretamente a conectividade entre grandes regiões da rede. Assim, os resultados indicam que há uma diferença fundamental entre degradar apenas conexões locais e degradar caminhos que atravessam a rede: no primeiro caso, a fragmentação segue leis de escala bem definidas; no segundo, como em (C=N), a rede entra em um regime dinâmico diferente, no qual a perda de caminhos longos acelera o colapso da conectividade global.
