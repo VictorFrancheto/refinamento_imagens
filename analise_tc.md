@@ -6,12 +6,14 @@ Resultados numéricos obtidos com o estimador refinado (Savitzky–Golay + corte
 
 ## 1. Tabela-resumo
 
-| Conjunto | $t_c(N) \sim N^{\theta}$ (log-log) | R² | $t_{\max}(N) \sim N^{\alpha}$ | $t_c/t_{\max} \sim N^{\beta}$ | Veredito |
-|---|---|---|---|---|---|
-| $C=1$ | $\theta \approx 2.08$ | 0.999 | $\alpha \approx 2.24$ | $\beta \approx -0.16$ (R²=0.82) | **Consistente** — $t_c$ escala junto com $t_{\max}$ |
-| $C=2$ | $\theta \approx 1.47$ | 0.996 | $\alpha \approx 2.18$ | $\beta \approx -0.71$ | **Consistente** — janela crítica intermediária |
-| $C=3$ | $\theta \approx 1.18$ | 0.994 | $\alpha \approx 2.17$ | $\beta \approx -0.98$ | **Consistente** — janela crítica estreita |
-| $C=N$ | $\theta \approx -2.01$ | 0.604 | $\alpha \approx 2.16$ | $\beta \approx -4.16$ (R²=0.87) | **Artefato** — estimador falha para $N \ge 2000$ |
+| Conjunto | $t_c(N) \sim N^{\theta}$ (log-log) | R² | $t_{\max}(N)$ (horizonte, §2) | Veredito |
+|---|---|---|---|---|
+| $C=1$ | $\theta \approx 2.08$ | 0.999 | $\sim N^{2.24}$ | **Consistente** — colapso só perto do esgotamento de pares distintos |
+| $C=2$ | $\theta \approx 1.47$ | 0.996 | $\sim N^{2.18}$ | **Consistente** — expoente intermediário |
+| $C=3$ | $\theta \approx 1.18$ | 0.994 | $\sim N^{2.17}$ | **Consistente** — expoente próximo do limite $C\to\infty$ esperado |
+| $C=N$ | $\theta \approx -2.01$ | 0.604 | $\sim N^{2.16}$ | **Artefato** — estimador falha para $N \ge 2000$ |
+
+Observação: $t_{\max}$ na coluna acima é apenas o último timestamp dos CSVs (regra de parada do simulador, ver §2), não um observável físico. Por isso a coluna de $\beta = \theta - \alpha$ que aparecia em versões anteriores foi removida — ela era redundante com $\theta$ por construção.
 
 ### O que significa "o estimador falhar"
 
@@ -33,15 +35,17 @@ Em todos os três casos o sintoma observável é o mesmo: $\hat{t}_c(N)$ deixa d
 
 ---
 
-## 2. $t_{\max}(N)$ — escala universal $\sim N^{2.15\text{–}2.24}$
+## 2. $t_{\max}(N)$ — horizonte de simulação, não observável físico
 
-Os quatro valores de $C$ produzem o mesmo expoente, com R² = 1.000:
+No pipeline, `estimate_tmax(df) = max(t no CSV)`. Ou seja, $t_{\max}$ não é o tempo em que a rede de fato deixa de funcionar — é o **último timestamp registrado**, fixado pela regra de parada do simulador que gerou os CSVs. O ajuste devolve, com R² = 1.000 para todo $C$,
 
 $$
 t_{\max}(N) \;\sim\; N^{2.16 \pm 0.04}.
 $$
 
-Isto é exatamente o que se espera de um processo aleatório que precisa varrer da ordem de $\binom{N}{2} = \mathcal{O}(N^2)$ pares de nós para esgotar a rede. O fato de $\alpha$ não depender de $C$ confirma que $t_{\max}$ é uma escala **combinatória**, ditada apenas pelo tamanho do espaço de pares, e não pela dinâmica de percolação.
+A independência em $C$ e o R² praticamente perfeito confirmam que se trata de **uma única regra de parada $\propto N^2$** aplicada a todas as rodadas (provavelmente algo como `int(N*(N-1)/2)` ou um múltiplo). O $0.16$ acima de $2$ é compatível com correção de arredondamento de inteiros sobre uma faixa estreita $N\in[300, 3000]$ — não é assinatura física da topologia.
+
+Consequência metodológica: a razão $t_c/t_{\max}$ e seu expoente $\beta = \theta - 2.16$ são **redundantes com $\theta$** por construção e não trazem informação física independente. Toda a leitura física tem que ser feita diretamente sobre $t_c(N)$.
 
 ---
 
@@ -142,15 +146,15 @@ def estimate_tc_by_max_slope(df, edge_frac=0.05, pmin=0.05, pmax=0.95):
 
 ---
 
-## 6. Veredito sobre a dinâmica
+## 6.$t_{\max}$ é horizonte de simulação, não observável.** O ajuste $\sim N^{2.16}$ é a regra de parada do gerador dos CSVs ($\propto N^2$, com $0.16$ de correção de ajuste log-log em faixa estreita de $N$). Não há universalidade física a extrair daí.
 
-1. **Escala combinatória universal.** $t_{\max}(N) \sim N^{2.16}$ para todos os $C$ confirma que o esgotamento do ataque é um efeito de contagem de pares, independente da estrutura da rede.
+2. **A dinâmica vive em $\theta_C$.** Os três valores $\theta_C \in \{2.08,\, 1.47,\, 1.18\}$ para $C\in\{1,2,3\}$ são robustos (R² $\ge 0.994$) e medidos diretamente sobre $p(t,N)$. A monotonicidade decrescente em $C$ é o achado central; sua interpretação geométrica (profundidade no ranking de edge-betweenness) está na §8.
 
-2. **Existência de uma transição não-trivial controlada por $C$.** O expoente $\theta$ de $t_c \sim N^\theta$ depende monotonicamente de $C$ (2.08, 1.47, 1.18 para $C = 1, 2, 3$), e o quociente $t_c/t_{\max}$ tem expoentes $\beta \in \{-0.16,\, -0.71,\, -0.98\}$. **A redundância $C$ comprime a janela crítica relativa, mas não desloca $t_{\max}$.**
+3. **Não há $t_c^\infty$ finito para $C \in \{1, 2\}$.** O tempo crítico diverge polinomialmente em $N$ — coerente com ausência de transição termodinâmica padrão; apenas pseudo-crítico em tamanho finito.
 
-3. **Não há $t_c^\infty$ finito para $C \in \{1, 2\}$.** O tempo crítico diverge polinomialmente — coerente com um sistema sem ponto crítico no sentido termodinâmico padrão, apenas uma transição que recua para $\infty$ conforme $N$ cresce.
+4. **$C=3$ é o ponto onde correções de scaling começam a importar.** A discrepância entre log-log puro e ajuste com offset ($\Delta\theta \approx 0.5$) é sinal de cross-over; vale a pena tentar formas mais ricas como $t_c = t_\infty + a N^{-\theta} + b N^{-\theta'}$.
 
-4. **$C=3$ é o ponto onde correções de scaling começam a importar.** A discrepância entre log-log puro e ajuste com offset ($\Delta\theta \approx 0.5$) é um sinal de cross-over: nesse regime já vale a pena tentar formas mais ricas como $t_c = t_\infty + a N^{-\theta} + b N^{-\theta'}$.
+5. **$C=N$ ainda precisa ser refeito.** Os números atuais são falha do estimador, não físicaé um sinal de cross-over: nesse regime já vale a pena tentar formas mais ricas como $t_c = t_\infty + a N^{-\theta} + b N^{-\theta'}$.
 
 5. **$C=N$ ainda precisa ser refeito.** Os números atuais não refletem física — refletem uma falha do estimador induzida pela morfologia da curva $p(t)$. Aplicar a máscara $p\in[0.05, 0.95]$ deve restaurar a monotonicidade.
 
@@ -165,51 +169,60 @@ def estimate_tc_by_max_slope(df, edge_frac=0.05, pmin=0.05, pmax=0.95):
 
 ---
 
-## 8. Conclusão: conexão com *shortest path percolation* e redes de internet quântica
+## 8. SPP, redes quânticas e os resultados deste trabalho
 
-Os números obtidos não são apenas expoentes em ajustes log-log — eles têm uma leitura física direta no contexto da dinâmica de **shortest path percolation (SPP)** que governa a operação de uma rede de internet quântica sob consumo repetido de recursos de emaranhamento.
+Esta seção conecta três coisas: (i) a dinâmica que foi simulada (*shortest path percolation*), (ii) a leitura dessa dinâmica em internet quântica (que é a motivação física do trabalho), e (iii) o que os números medidos — $\theta_C \in \{2.08, 1.47, 1.18\}$ — efetivamente dizem sobre essa leitura. Tudo aqui se apoia em coisas que **estão** no pipeline: o estimador de $t_c$ (§§2–3 de [metodologia_tc_theta.md](metodologia_tc_theta.md)), a janela de transição $W(N)$ ([janela_transicao.md](janela_transicao.md)) e os ajustes log-log de [plots_random_attack_refined.ipynb](plots_random_attack_refined.ipynb).
 
-### 8.1 O mapeamento físico
+### 8.1 O que está sendo simulado, em uma frase
 
-Em uma rede de internet quântica, cada par de nós $(u,v)$ que precisa estabelecer um canal quântico consome o **caminho mais curto** disponível entre eles — o *entanglement swapping* ao longo desse caminho esgota um "estoque" de pares de Bell (estados maximamente emaranhados de dois qubits, historicamente chamados de pares EPR em referência ao artigo de Einstein–Podolsky–Rosen de 1935) em cada aresta intermediária. Isso define a dinâmica de SPP:
+SPP sobre Waxman: a cada passo $t$ um par $(u,v)$ é sorteado, o caminho mais curto $\pi_t(u,v)$ é roteado na rede residual e cada aresta de $\pi_t$ tem sua capacidade $C$ decrementada em 1; arestas com capacidade zero somem. O observável é $p(t,N)$, fração de pares ainda conectados pela componente gigante.
 
-- a cada passo $t$, sorteia-se uma demanda $(u,v)$;
-- o caminho mais curto $\pi_t(u,v)$ é computado na rede residual $G_t$;
-- as $|\pi_t|$ arestas ao longo dele têm sua **capacidade** $C$ decrementada em 1;
-- arestas com capacidade exaurida são removidas, $G_{t+1} = G_t \setminus \{e : C_e = 0\}$.
+### 8.2 A tradução para internet quântica
 
-O parâmetro $C$ — que na nossa varredura assume valores $\{1, 2, 3, N\}$ — é exatamente a **redundância de pares de Bell por enlace**, ou equivalentemente a taxa de geração de emaranhamento por unidade de tempo de uso. O observável $p(t,N) = $ fração de pares ainda conectados na componente gigante é o **rendimento operacional** da rede.
+A correspondência é direta e dispensa metáforas:
 
-### 8.2 Leitura física dos expoentes
+| Objeto no SPP | Objeto na rede quântica |
+|---|---|
+| Aresta do grafo Waxman | Enlace físico entre dois repetidores |
+| Capacidade $C$ da aresta | Número de pares de Bell (EPR) pré-alocados naquele enlace |
+| Demanda $(u,v)$ no passo $t$ | Requisição de entrega de emaranhamento ponto-a-ponto |
+| Caminho $\pi_t(u,v)$ | Rota de *entanglement swapping* escolhida pelo controlador |
+| Decremento de capacidade ao longo de $\pi_t$ | Consumo de um par de Bell por enlace para realizar o swapping |
+| Remoção da aresta quando $C=0$ | Enlace fica fora de serviço até nova replenishment |
+| $p(t,N)$ | Fração de pares fim-a-fim ainda atendíveis com a reserva atual |
+| $t_c(N)$ | Número de requisições que a rede aguenta antes da degradação abrupta |
 
-| Resultado numérico | Significado em SPP | Implicação para internet quântica |
-|---|---|---|
-| $t_{\max} \sim N^{2.16}$ universal | Esgotamento combinatório: $\binom{N}{2}$ pares possíveis | Tempo de vida absoluto da rede é ditado pela contagem de demandas, não pela topologia |
-| $\theta_{C=1} = 2.08 \approx \alpha$ | $t_c/t_{\max} \to $ const. | **Sem proteção:** rede colapsa só perto do esgotamento; não há aviso prévio |
-| $\theta_{C=2} = 1.47$, $\beta = -0.71$ | Janela crítica sublinear em $t_{\max}$ | Redundância dupla cria escala crítica genuína $\ll t_{\max}$ |
-| $\theta_{C=3} = 1.18$, $\beta \approx -1$ | $t_c/t_{\max} \sim 1/N$ | Transição abrupta com janela vanishing — comportamento de **percolação clássica** |
-| Monotonicidade $\theta_C \downarrow$ com $C$ | Mais redundância $\Rightarrow$ transição mais precoce em fração de $t_{\max}$ | Trade-off: aumentar $C$ baixa o $t_c$ relativo mas estreita a janela de degradação |
+Sob esse mapeamento, $C$ é exatamente o **estoque inicial de pares EPR por enlace** e $t$ é a **vazão acumulada de requisições**. A janela de transição $W(N)$ documentada em [janela_transicao.md](janela_transicao.md) é o intervalo em que a rede passa de "essencialmente saudável" para "essencialmente colapsada".
 
-### 8.3 Por que $\theta$ decresce com $C$ — interpretação de redes complexas
+### 8.3 O que os resultados deste trabalho dizem
 
-A intuição ingênua diria o oposto: mais Bell pairs por aresta deveriam **adiar** o colapso. O fato observado — $\theta_C$ decresce — revela que estamos medindo a **largura relativa** da transição, não sua posição absoluta. Em termos de teoria de percolação:
+Três fatos numéricos, dos quais tudo decorre:
 
-- Com $C=1$, cada aresta é frágil; o sistema se comporta como **percolação de arestas independentes**, onde a remoção é local e descorrelacionada. A correlação $\xi(t)$ diverge lentamente porque o dano se espalha por difusão geométrica. Isso produz uma janela crítica larga, com $\xi \sim N$ (corte por tamanho finito), e portanto $\theta \to d_{\text{eff}}$.
+1. $t_c(N) \sim N^{\theta_C}$ com $\theta_1 \approx 2.08$, $\theta_2 \approx 1.47$, $\theta_3 \approx 1.18$ (R² $\ge 0.994$).
+2. $\theta_C$ é **estritamente decrescente** em $C$ no intervalo medido.
+3. $t_{\max}(N) \sim N^{2.16}$ é horizonte de simulação ($\propto N^2$), não escala física (§2).
 
-- Com $C \ge 2$, a dinâmica adquire **memória de caminhos**: arestas em caminhos centrais (alto *edge betweenness*) são reutilizadas sistematicamente, e o consumo deixa de ser aleatório sobre arestas — torna-se **correlacionado pela topologia**. As arestas centrais saturam primeiro, e a rede passa por uma **reconfiguração dos caminhos mais curtos** (o que em redes complexas se conhece como *rerouting cascade*). Essa cascata é o que estreita a janela crítica: uma vez que o backbone de baixo-diâmetro quebra, o sistema desmorona em $\Delta t = o(t_c)$.
+Lendo na linguagem de internet quântica:
 
-- O limite $C=3$ com $\beta \approx -1$ corresponde precisamente ao regime onde a janela crítica escala como o **diâmetro inverso** de uma rede de mundo pequeno, $t_c/t_{\max} \sim 1/\log N$ ou $\sim 1/N$ dependendo da topologia subjacente. Esse é o **regime de percolação explosiva controlada**, característico de SPP em grafos com distribuição de betweenness heavy-tailed.
+**(a) Aumentar o estoque $C$ por enlace aumenta o número absoluto de requisições atendidas, mas com retornos decrescentes em $N$.** O expoente $\theta_C$ cai de $2.08$ para $1.18$ entre $C=1$ e $C=3$. Em valor absoluto, $t_c$ sempre cresce com $C$ para $N$ fixo (mais estoque, mais requisições antes do colapso); o ponto é que **a taxa de crescimento em $N$** muda. Para $C=1$, dobrar $N$ multiplica $t_c$ por $\approx 4{,}2$; para $C=3$, dobrar $N$ multiplica $t_c$ por apenas $\approx 2{,}3$. Operacionalmente: o ganho que se obtém ao expandir a rede (mais nós) é maior quando o estoque é magro do que quando ele é folgado.
 
-### 8.4 Implicações para o projeto de redes de internet quântica
+**(b) Não existe ponto crítico termodinâmico para $C \in \{1, 2\}$.** O ajuste com offset (§4) devolve $t_\infty$ compatível com zero e o ajuste log-log puro coincide com o ajuste de três parâmetros. Isso significa que, para esses regimes, **não há um número finito de requisições que a rede aguente no limite $N\to\infty$**: a capacidade da rede inteira diverge com $N$. Para internet quântica de larga escala isso é uma propriedade desejável (escalabilidade), e os números quantificam **com que expoente** essa capacidade escala.
 
-1. **Capacidade não é a métrica que importa — é a curvatura de $p(t)$.** O expoente $\alpha \approx 2.16$ universal mostra que duplicar $C$ não duplica o tempo de vida operacional; o ganho está em $\theta$, ou seja, em **quão abrupta** é a degradação. Redes com $C$ alto são *quase indistinguíveis* de redes saudáveis até $t \sim t_c$, e então colapsam em uma janela $\sim N^{\theta-\alpha}$ — o que do ponto de vista operacional significa **ausência de degradação gradual**: o operador não tem sinais precoces de fadiga.
+**(c) $C=3$ é cross-over.** A discrepância entre log-log puro ($\theta=1.18$) e ajuste com offset ($\theta=1.70$) — §4, R² baixo no offset — indica que o ansatz $t_c = t_\infty + aN^{-\theta}$ não basta. Em termos operacionais, $C=3$ parece ser o regime em que duas escalas de tempo passam a competir: o consumo direto do estoque e a reorganização de rotas conforme arestas saem. Os dados atuais não separam essas duas escalas — para isso seria preciso $C=4, 5, \dots$ e/ou monitorar $\langle\ell_t\rangle$ ao longo do ataque (cf. §4 de [janela_transicao.md](janela_transicao.md)).
 
-2. **A redundância $C$ é um trade-off entre robustez e detectabilidade.** $C=1$ é frágil mas previsível (a degradação acompanha o uso); $C=3$ é robusto mas perigoso (sem aviso). Em internet quântica, isso impõe que **políticas de monitoramento** sejam adaptadas ao $C$ provisionado: para $C$ alto, é obrigatório monitorar **derivadas** de $p(t)$, não níveis.
+**(d) A janela de transição encolhe com $C$ — e isso é o achado operacional central.** Os $\theta_C$ medidos são justamente os expoentes da posição da janela; combinados com o expoente de largura $\theta_{\text{coll}}$ (estimado por colapso, ver §4 de [metodologia_tc_theta.md](metodologia_tc_theta.md)), eles dizem **quão abrupta** é a queda de $p(t,N)$ em torno de $t_c$. Para uma rede quântica, isso tem consequência prática: quanto maior $C$, maior $t_c$ em absoluto, mas mais estreita a janela em que a rede passa de funcional a colapsada. Reservas generosas de pares EPR pagam em vida útil mas custam em **previsibilidade do colapso** — um operador não deve confiar em "a vazão ainda está boa" como sinal de saúde para $C$ alto; precisa monitorar derivadas, não níveis.
 
-3. **A universalidade de $\alpha$ atravessa a topologia.** Como $t_{\max} \sim N^{2.16}$ não depende de $C$ — e, em particular, está acima do limite trivial $\binom{N}{2} \sim N^2$ por um fator logarítmico-em-$N$ disfarçado — temos evidência de que o **comprimento médio de caminho** $\langle \ell \rangle$ entra na contagem: cada demanda consome $\langle \ell \rangle$ unidades de capacidade. Para redes de mundo pequeno, $\langle \ell \rangle \sim \log N$, o que reproduz $\alpha \approx 2 + \epsilon$ observado.
+### 8.4 O caso $C=N$ e a hipótese de duas escalas
 
-4. **O caso $C=N$ é o limite de "capacidade infinita" — e é onde mora a física assintótica do SPP.** O fato de o estimador falhar nesse regime (§5) é em si um achado: significa que a curva $p(t,N)$ desenvolve **dois cotovelos** — um transitório topológico (perda das arestas de menor betweenness, sem afetar a conectividade) e a percolação genuína. Em redes de internet quântica com capacidade essencialmente ilimitada, o operador veria **duas escalas de tempo distintas**: uma de "envelhecimento topológico" e outra de "morte por percolação", separadas por um platô. Identificar e separar essas duas escalas — não meramente "corrigir o estimador" — é o próximo problema teórico relevante.
+O regime $C=N$ corresponde a "estoque tão grande que cada enlace praticamente não satura por consumo direto". Os números atuais ($\theta=-2.01$, R²=0.604) **não medem física** — são falha do estimador, documentada no §5: o `argmax` de $dp/d\ln t$ migra de um pico para outro entre $N=1000$ e $N=2000$. A presença de **dois picos** é em si informação: sugere que nesse regime $p(t,N)$ tem duas escalas de tempo distintas, uma transitória e outra de percolação propriamente dita. Operacionalmente: redes quânticas com estoque essencialmente ilimitado por enlace podem exibir uma fase de "desgaste topológico lento" antes do colapso propriamente dito. Confirmar isso exige refazer $C=N$ com a máscara $p\in[0.05, 0.95]$ proposta no §5 e examinar se os dois picos são robustos.
 
-### 8.5 Síntese
+### 8.5 Conclusão
 
-Os resultados confirmam que a transição observada em $p(t,N)$ é uma **transição de percolação de tamanho finito sobre o ensemble de caminhos mais curtos**, não sobre o ensemble de arestas. O expoente $\theta$ não mede uma dimensão geométrica do grafo — mede como a **distribuição de carga sobre esses caminhos** se concentra à medida que arestas são removidas. É essa concentração que governa a janela operacional de uma internet quântica real: redes com alta redundância são objetivamente mais duradouras, porém estatisticamente mais frágeis no sentido de que sua falha é **menos anunciada**. Em última análise, o que a tabela do §1 está nos dizendo é que **a métrica de projeto correta não é $t_c$ nem $t_{\max}$ isoladamente, mas o expoente $\beta = \theta - \alpha$** — a única quantidade que captura simultaneamente quanto a rede dura *e* quanto tempo o operador tem para reagir.
+Em SPP sobre Waxman com o estimador deste trabalho:
+
+- O **tempo de vida** $t_c(N)$ da rede cresce polinomialmente em $N$ com expoente $\theta_C$ que **depende monotonicamente** do estoque por enlace $C$, sem evidência de um teto finito para $C \in \{1, 2\}$.
+- O ganho marginal de aumentar $C$ é positivo em valor absoluto mas **reduz o expoente de escala**, ou seja, a vantagem do estoque folgado decresce conforme a rede cresce.
+- A janela em que o colapso ocorre encolhe com $C$, transformando alta capacidade em **baixa previsibilidade**.
+- O regime de capacidade muito alta ($C=N$) sugere duas escalas de tempo distintas, mas isso precisa ser confirmado com o estimador corrigido antes de qualquer afirmação física.
+
+Para o desenho de uma internet quântica real, a leitura é direta: $C$ é o botão que troca **horizonte operacional** por **agudeza da falha**. Os dados aqui não dizem qual é o $C$ ótimo — dizem que essa pergunta tem que ser feita em termos de $\theta_C$, não de $t_c$ isolado, porque é $\theta_C$ que governa como a escolha vai escalar conforme a rede cresce.
