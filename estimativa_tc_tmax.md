@@ -736,3 +736,124 @@ Ambas dependem unicamente das colunas `t` e `p` do CSV; os parâmetros de
 suavização (`frac=0.05`, `wmin=7`, `wmax=51`, `polyorder=3`) e recorte
 (`edge_frac=0.05`) são fixos no código mas explícitos no cabeçalho das
 funções, podendo ser ajustados sem afetar o restante do pipeline.
+
+---
+
+## 9. Passo a passo da escolha de $\theta$ pelo colapso
+
+Esta seção resume, na ordem em que o código executa, o que acontece dentro
+de `collapse_score_physical(theta)` para **cada candidato $\theta$** e
+como `estimate_theta_by_collapse` combina essas chamadas para devolver o
+$\theta$ final.
+
+### 9.1 O que acontece para cada candidato $\theta$
+
+Dado um valor de $\theta$, a rotina executa, em sequência:
+
+1. **Variável reescalada para cada $N$.**
+   Para cada tamanho $N$, calcula
+   $$
+   x_i^{(N)} \;=\; (t_i - t_c(N))\, N^{-\theta},
+   $$
+   considerando apenas pontos com $p \in [p_{\min}, p_{\max}] = [0{,}05,\,0{,}9]$.
+   Ordena por $x$. Cada $N$ vira um par `(x_N, p_N)`.
+
+2. **Intervalo de sobreposição.**
+   $$
+   \text{left} = \max_N x_{\min}^{(N)}, \qquad
+   \text{right} = \min_N x_{\max}^{(N)}.
+   $$
+
+3. **Grade comum.**
+   ```python
+   grid = np.linspace(left, right, 400)
+   ```
+
+4. **Interpola cada curva na grade e empilha em $P$.**
+   ```python
+   P = np.vstack([np.interp(grid, x_N, p_N) for (x_N, p_N) in curves])
+   # shape: (N_curvas, 400)
+   ```
+
+5. **Curva média sobre os $N$.**
+   $$
+   \bar p(x_j) \;=\; \frac{1}{N_{\text{curvas}}}\sum_i P[i, j].
+   $$
+
+6. **Peso a partir da derivada da média.**
+   $$
+   w(x_j) \;=\; \left|\frac{d\bar p}{dx}\right|_{x_j} \;+\; 10^{-7}.
+   $$
+
+7. *(Opcional)* **Descarte da pior curva** se `drop_worst=True` e
+   $N_{\text{curvas}} \ge 4$, recalculando $\bar p$ com as restantes. O
+   peso $w$ já fica congelado no passo 6 e **não** é recalculado depois
+   do descarte.
+
+8. **Variância vertical em cada ponto da grade.**
+   $$
+   v(x_j) \;=\; \mathrm{Var}_i\, P[i, j].
+   $$
+
+9. **Score (variância ponderada).**
+   $$
+   S(\theta) \;=\; \frac{\sum_j w(x_j)\, v(x_j)}{\sum_j w(x_j)}.
+   $$
+
+10. **Retorna $S(\theta)$.**
+
+> **Importante:** $P$, $\bar p$, $w$ e $v$ são **todos recalculados a
+> cada candidato $\theta$**. Nada é fixo entre candidatos — só o que vem
+> de fora (`dfs`, `Ns`, `tcs`, $p_{\min}$, $p_{\max}$, `ngrid`).
+
+### 9.2 Como `estimate_theta_by_collapse` escolhe o $\theta$
+
+A função aplica os passos 1–10 acima **600 vezes**, em duas varreduras:
+
+```
+# varredura grossa
+para th em linspace(0, 6, 300):
+	calcula S(th)             # passos 1-10
+theta1 = argmin S na grade grossa
+
+# varredura fina ao redor de theta1
+passo = 6/299
+para th em linspace(theta1 - 3·passo, theta1 + 3·passo, 300):
+	calcula S(th)             # passos 1-10
+theta_final = argmin S na grade fina        # <-- retornado
+```
+
+- A grade grossa cobre $[0, 6]$ com espaçamento $\Delta\theta \approx 0{,}020$.
+- A grade fina cobre apenas $\pm 3\Delta\theta$ em volta de $\theta_1$,
+  com 300 pontos — espaçamento $\sim 30\times$ mais fino
+  ($\Delta\theta \approx 7\cdot 10^{-4}$).
+- Custo total: $300 + 300 = 600$ avaliações de `score`, em vez das
+  $\sim 9000$ que seriam necessárias para a mesma resolução em uma única
+  passada.
+
+### 9.3 Diagrama do fluxo
+
+```
+para cada theta candidato:
+	┌───────────────────────────────────────────────┐
+	│ 1. x = (t - tc) * N^(-theta)   [por N]         │
+	│ 2. left, right (sobreposição)                 │
+	│ 3. grid = linspace(left, right, 400)          │
+	│ 4. P = interpola cada curva na grid           │
+	│ 5. bar_p = mean(P, axis=0)                    │
+	│ 6. w = |d bar_p / dx| + eps                   │
+	│ 7. (drop_worst) descarta pior curva           │
+	│ 8. v = var(P, axis=0)                         │
+	│ 9. S(theta) = sum(w*v) / sum(w)               │
+	└───────────────────────────────────────────────┘
+	                  │
+	                  ▼
+	guarda S(theta) na lista
+
+ao final: theta_otimo = argmin S
+```
+
+Resumo bem curto: **escolho $\theta$ → calculo $x_j$ → monto $P$ → calculo
+$\bar p$ → derivo $w$ → calculo $v$ → componho $S(\theta)$**. Esse fluxo
+roda 600 vezes (300 grosso + 300 fino) e o $\theta$ vencedor é o que
+produziu o menor $S$.
