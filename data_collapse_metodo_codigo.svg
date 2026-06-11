@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1150" viewBox="0 0 1800 1150">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#eefaf2"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#1c2d4a"/>
+    </marker>
+    <style>
+      .title { font: 700 52px 'DejaVu Sans', Arial, sans-serif; fill: #102038; }
+      .subtitle { font: 400 24px 'DejaVu Sans', Arial, sans-serif; fill: #39537a; }
+      .boxTitle { font: 700 27px 'DejaVu Sans', Arial, sans-serif; fill: #132847; }
+      .txt { font: 500 22px 'DejaVu Sans', Arial, sans-serif; fill: #243b5c; }
+      .mono { font: 600 23px 'DejaVu Sans Mono', Consolas, monospace; fill: #114737; }
+      .small { font: 400 19px 'DejaVu Sans', Arial, sans-serif; fill: #3a537d; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="1150" fill="url(#bg)"/>
+
+  <text x="70" y="85" class="title">Metodo de Data Collapse usado no codigo</text>
+  <text x="70" y="125" class="subtitle">Implementacao das funcoes: collapse_score_physical(...) e estimate_theta_by_collapse(...)</text>
+
+  <rect x="70" y="170" width="1660" height="135" rx="16" fill="#ffffff" stroke="#c8d5e8" stroke-width="2.5"/>
+  <text x="95" y="218" class="boxTitle">Entradas</text>
+  <text x="95" y="255" class="mono">dfs, Ns, tcs, theta, pmin=0.05, pmax=0.9, ngrid=400, drop_worst=True</text>
+  <text x="95" y="287" class="small">Cada curva e p(t,N). O metodo compara varias curvas em N diferentes apos reescala em x.</text>
+
+  <rect x="80" y="350" width="510" height="265" rx="16" fill="#ffffff" stroke="#b7cae4" stroke-width="2.5"/>
+  <text x="105" y="392" class="boxTitle">1) Preparar cada curva</text>
+  <text x="105" y="430" class="txt">- Limpa t e p (clean_tp)</text>
+  <text x="105" y="463" class="txt">- Mascara critica: p in [pmin, pmax]</text>
+  <text x="105" y="496" class="txt">- Reescala eixo horizontal:</text>
+  <text x="105" y="530" class="mono">x = (t - tc) * N^(-theta)</text>
+  <text x="105" y="563" class="txt">- Ordena por x e guarda (x, p)</text>
+
+  <rect x="645" y="350" width="510" height="265" rx="16" fill="#ffffff" stroke="#b7d9c2" stroke-width="2.5"/>
+  <text x="670" y="392" class="boxTitle">2) Grid comum e interpolacao</text>
+  <text x="670" y="430" class="txt">- Intersecao de dominio entre curvas:</text>
+  <text x="670" y="463" class="mono">left = max(min x_k), right = min(max x_k)</text>
+  <text x="670" y="496" class="txt">- Grid uniforme em [left, right]</text>
+  <text x="670" y="530" class="txt">- Matriz P por interpolacao linear:</text>
+  <text x="670" y="563" class="mono">P[k,j] = interp(grid[j], x_k, p_k)</text>
+
+  <rect x="1210" y="350" width="510" height="265" rx="16" fill="#ffffff" stroke="#d6c4a8" stroke-width="2.5"/>
+  <text x="1235" y="392" class="boxTitle">3) Score de colapso</text>
+  <text x="1235" y="430" class="txt">- Curva media: mean_curve = mean(P, eixo 0)</text>
+  <text x="1235" y="463" class="txt">- Peso por inclinacao da media:</text>
+  <text x="1235" y="496" class="mono">weight = |d(mean_curve)/dx| + 1e-7</text>
+  <text x="1235" y="530" class="txt">- Score final (variancia vertical ponderada):</text>
+  <text x="1235" y="563" class="mono">S(theta) = average(var(P,eixo 0), weights=weight)</text>
+
+  <line x1="590" y1="482" x2="635" y2="482" stroke="#1c2d4a" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="1155" y1="482" x2="1200" y2="482" stroke="#1c2d4a" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="80" y="660" width="800" height="250" rx="16" fill="#ffffff" stroke="#d6c0db" stroke-width="2.5"/>
+  <text x="105" y="702" class="boxTitle">4) Robustez (drop_worst)</text>
+  <text x="105" y="740" class="txt">Se houver pelo menos 4 curvas:</text>
+  <text x="105" y="773" class="mono">dev_k = average((P[k]-mean_curve)^2, weights=weight)</text>
+  <text x="105" y="806" class="txt">Remove a curva com maior dev_k, recalcula media e score.</text>
+  <text x="105" y="839" class="small">Ideia: reduzir impacto de um t_c(N) muito ruidoso ou curva discordante.</text>
+
+  <rect x="920" y="660" width="800" height="250" rx="16" fill="#ffffff" stroke="#b8d0e5" stroke-width="2.5"/>
+  <text x="945" y="702" class="boxTitle">5) Busca de theta (coarse + refine)</text>
+  <text x="945" y="740" class="txt">Coarse: avalia S(theta) em 300 pontos em [0, 6].</text>
+  <text x="945" y="773" class="txt">theta1 = argmin score no grid grosso.</text>
+  <text x="945" y="806" class="txt">Refine: nova busca local em [theta1 - 3*step, theta1 + 3*step].</text>
+  <text x="945" y="839" class="mono">theta_collapse = argmin_theta S(theta)</text>
+
+  <line x1="480" y1="615" x2="480" y2="650" stroke="#1c2d4a" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="1460" y1="615" x2="1460" y2="650" stroke="#1c2d4a" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="70" y="950" width="1660" height="140" rx="16" fill="#ffffff" stroke="#cfdbe9" stroke-width="2.5"/>
+  <text x="95" y="995" class="boxTitle">Leitura fisica do que o codigo otimiza</text>
+  <text x="95" y="1030" class="txt">O melhor theta e aquele que minimiza o espalhamento vertical entre curvas reescaladas na janela critica.</text>
+  <text x="95" y="1062" class="txt">Na pratica: quanto menor S(theta), melhor o colapso de dados.</text>
+
+  <text x="1480" y="1125" class="small">Figura gerada para o metodo do notebook refinado</text>
+</svg>
